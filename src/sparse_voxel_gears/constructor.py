@@ -85,10 +85,10 @@ class SVConstructor:
             [self.num_voxels, 1],
             dtype=torch.float32, device="cuda").requires_grad_()
 
-    def ijkl_init(self,
+    def octpath_init(self,
                   scene_center,
                   scene_extent,
-                  ijk,           # Nx3 integer coordinates of each voxel.
+                  octpath,       # Nx1 octpath.
                   octlevel,      # Nx1 or scalar for the Octree level of each voxel.
 
                   # The following are model parameters.
@@ -104,21 +104,12 @@ class SVConstructor:
         self.scene_center, self.scene_extent, self.inside_extent = get_scene_bound_tensor(
             center=scene_center, extent=scene_extent)
 
-        # Convert to ijkl to octpath
-        octlevel = get_octlevel_tensor(octlevel, num_voxels=len(ijk))
+        assert torch.is_tensor(octpath)
+        octlevel = get_octlevel_tensor(octlevel, num_voxels=len(octpath))
 
-        assert torch.is_tensor(ijk)
-        assert len(ijk.shape) == 2 and ijk.shape[1] == 3
-        assert len(ijk) == len(octlevel)
-        ijk = ijk.long()
-        if (ijk < 0).any():
-            raise Exception("xyz out of scene bound")
-        if (ijk >= (1 << octlevel.long())).any():
-            raise Exception("xyz out of scene bound")
-        octpath = svraster_cuda.utils.ijk_2_octpath(ijk, octlevel)
-
-        self.octpath = octpath
-        self.octlevel = octlevel
+        self.octpath = octpath.view(-1, 1).contiguous()
+        self.octlevel = octlevel.view(-1, 1).contiguous()
+        assert len(self.octpath) == len(self.octlevel)
 
         # Subdivision priority trackor
         self._subdiv_p = torch.ones(
@@ -165,6 +156,48 @@ class SVConstructor:
             self._geo_grid_pts = torch.full(
                 [self.num_grid_pts, 1], density,
                 dtype=torch.float32, device="cuda").requires_grad_()
+
+    def ijkl_init(self,
+                  scene_center,
+                  scene_extent,
+                  ijk,           # Nx3 integer coordinates of each voxel.
+                  octlevel,      # Nx1 or scalar for the Octree level of each voxel.
+
+                  # The following are model parameters.
+                  # If the input are tensors, the gradient of rendering can be backprop to them.
+                  # Otherwise, it creates new trainable tensors.
+                  rgb=0.5,       # Nx3 or scalar for voxel color in range of 0~1.
+                  shs=0.0,       # NxDx3 or scalar for voxel higher-deg sh coefficient.
+                  density=-10.,  # Nx8 or Ngridx1 or scalar for voxel density field.
+                                 # The order is [0,0,0] => [0,0,1] => [0,1,0] => [0,1,1] ...
+                  reduce_density=False,  # Whether to merge grid points if density is Nx8.
+                  ):
+
+        scene_center, scene_extent, _ = get_scene_bound_tensor(
+            center=scene_center, extent=scene_extent)
+
+        # Convert to ijkl to octpath
+        octlevel = get_octlevel_tensor(octlevel, num_voxels=len(ijk))
+
+        assert torch.is_tensor(ijk)
+        assert len(ijk.shape) == 2 and ijk.shape[1] == 3
+        assert len(ijk) == len(octlevel)
+        ijk = ijk.long()
+        if (ijk < 0).any():
+            raise Exception("xyz out of scene bound")
+        if (ijk >= (1 << octlevel.long())).any():
+            raise Exception("xyz out of scene bound")
+        octpath = svraster_cuda.utils.ijk_2_octpath(ijk, octlevel)
+
+        self.octpath_init(
+            scene_center=scene_center,
+            scene_extent=scene_extent,
+            octpath=octpath,
+            octlevel=octlevel,
+            rgb=rgb,
+            shs=shs,
+            density=density,
+            reduce_density=reduce_density)
 
     def points_init(self,
                          scene_center,
