@@ -63,25 +63,13 @@ if __name__ == "__main__":
         camera_params_only=True,
     )
 
-    # Interpolate poses
-    cams = data_pack.get_train_cameras()
-    if len(args.ids):
-        key_poses = [cams[i].c2w.cpu().numpy() for i in args.ids]
-    else:
-        cam_pos = torch.stack([cam.position for cam in cams])
-        ids = [args.starting_id]
-        for _ in range(3):
-            farthest_id = torch.cdist(cam_pos[ids], cam_pos).amin(0).argmax().item()
-            ids.append(farthest_id)
-        ids[1], ids[2] = ids[2], ids[1]
-        key_poses = [cams[i].c2w.cpu().numpy() for i in ids]
-
-    if args.step_forward != 0:
-        for i in range(len(key_poses)):
-            lookat = key_poses[i][:3, 2]
-            key_poses[i][:3, 3] += args.step_forward * lookat
-
-    interp_poses = interpolate_poses(key_poses, n_frame=args.n_frames, periodic=True)
+    # Interpolate cameras
+    interp_cams = data_pack.interpolate_cameras(
+        n_frames=args.n_frames,
+        starting_id=args.starting_id,
+        ids=args.ids,
+        step_forward=args.step_forward,
+    )
 
     # Load model
     voxel_model = SparseVoxelModel(
@@ -95,18 +83,8 @@ if __name__ == "__main__":
     voxel_model.freeze_vox_geo()
 
     # Rendering
-    fovx = cams[0].fovx
-    fovy = cams[0].fovy
-    width = cams[0].image_width
-    height = cams[0].image_height
-
     video = []
-    for pose in tqdm(interp_poses, desc="Rendering progress"):
-
-        cam = MiniCam(
-            c2w=pose,
-            fovx=fovx, fovy=fovy,
-            width=width, height=height)
+    for cam in tqdm(interp_cams, desc="Rendering progress"):
 
         with torch.no_grad():
             render_pkg = voxel_model.render(cam)

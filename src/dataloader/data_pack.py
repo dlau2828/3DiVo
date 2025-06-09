@@ -14,6 +14,7 @@ import torch
 
 from src.dataloader.reader_colmap_dataset import read_colmap_dataset
 from src.dataloader.reader_nerf_dataset import read_nerf_dataset
+from src.utils.camera_utils import interpolate_poses
 
 from src.cameras import Camera, MiniCam
 
@@ -91,6 +92,37 @@ class DataPack:
 
     def get_test_cameras(self):
         return self._cameras['test']
+
+    def interpolate_cameras(self, n_frames, starting_id=0, ids=[], step_forward=0):
+        cams = self.get_train_cameras()
+        if len(ids):
+            key_poses = [cams[i].c2w.cpu().numpy() for i in ids]
+        else:
+            assert starting_id >= 0
+            assert starting_id < len(cams)
+            cam_pos = torch.stack([cam.position for cam in cams])
+            ids = [starting_id]
+            for _ in range(3):
+                farthest_id = torch.cdist(cam_pos[ids], cam_pos).amin(0).argmax().item()
+                ids.append(farthest_id)
+            ids[1], ids[2] = ids[2], ids[1]
+            key_poses = [cams[i].c2w.cpu().numpy() for i in ids]
+
+        if step_forward != 0:
+            for i in range(len(key_poses)):
+                lookat = key_poses[i][:3, 2]
+                key_poses[i][:3, 3] += step_forward * lookat
+
+        interp_poses = interpolate_poses(key_poses, n_frame=n_frames, periodic=True)
+
+        base_cam = cams[ids[0]]
+        interp_cams = [
+            MiniCam(
+                c2w=pose,
+                fovx=base_cam.fovx, fovy=base_cam.fovy,
+                width=base_cam.image_width, height=base_cam.image_height)
+            for pose in interp_poses]
+        return interp_cams
 
 
 # Create a random sequence of image indices
