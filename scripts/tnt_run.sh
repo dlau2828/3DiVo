@@ -20,7 +20,9 @@ lanuch_exp() {
     python render.py $output_dir/$scene_name --skip_test --eval_fps
     python render.py $output_dir/$scene_name --skip_test --rgb_only --use_jpg
     python render_fly_through.py $output_dir/$scene_name/
-    python extract_mesh.py $output_dir/$scene_name/ --save_gpu --bbox_path $PATH_TO_OFFICIAL_TNT/$scene_name/"$scene_name"_mesh_bbox.txt --use_vert_color --final_lv 11 --adaptive --mesh_fname mesh_svr
+    python extract_mesh.py $output_dir/$scene_name/ --save_gpu --use_vert_color --mesh_fname mesh_svr \
+        --bbox_path $PATH_TO_OFFICIAL_TNT/$scene_name/"$scene_name"_mesh_bbox.txt \
+        --final_lv 11
     python scripts/eval_tnt/run.py --dataset-dir $PATH_TO_OFFICIAL_TNT/$scene_name/ --traj-path $PATH_TO_PREPROC_TNT/TrainingSet/$scene_name/"$scene_name"_COLMAP_SfM.log --ply-path $output_dir/$scene_name/mesh/latest/mesh_svr.ply
     rm -r $output_dir/$scene_name/checkpoints/
 }

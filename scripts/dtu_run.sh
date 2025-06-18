@@ -23,7 +23,8 @@ lanuch_exp() {
     python render.py $output_dir/$scene_name --skip_test --rgb_only --use_jpg
     python render_fly_through.py $output_dir/$scene_name/
 
-    python extract_mesh.py $output_dir/$scene_name/ --save_gpu --use_vert_color --init_lv 8 --final_lv 10 --mesh_fname mesh_dense
+    python extract_mesh.py $output_dir/$scene_name/ --save_gpu --use_vert_color --mesh_fname mesh_dense \
+        --progressive
 
     mkdir -p $output_dir/$scene_name/mesh/latest/evaluation
     python scripts/dtu_clean_for_eval.py $DATA_ROOT/dtu_"$scene_name"/ \
