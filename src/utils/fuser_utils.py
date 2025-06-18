@@ -54,9 +54,10 @@ class Fuser:
     def integrate(self, cam, depth, feat=None, alpha=None):
         # Project grid points to image
         xyz_uv = cam.project(self.xyz)
+        xyz_front = ((self.xyz - cam.position) @ cam.lookat) > cam.near
         
         # Filter points projected outside
-        filter_idx = torch.where((xyz_uv.abs() <= 1-self.crop_border).all(-1))[0]
+        filter_idx = torch.where((xyz_uv.abs() <= 1-self.crop_border).all(-1) & xyz_front)[0]
         valid_idx = filter_idx
         valid_xyz = self.xyz[filter_idx]
         valid_uv = xyz_uv[filter_idx]
