@@ -35,6 +35,10 @@ class SVAdaptive:
         Input:
             @prune_mask      [N] Mask indicating the voxels to prune.
         '''
+        if len(prune_mask.shape) == 2:
+            assert prune_mask.shape[1] == 1
+            prune_mask = prune_mask.squeeze(1)
+        assert prune_mask.shape == (self.num_voxels, )
         kept_idx = (~prune_mask).argwhere().squeeze(1)
         if len(kept_idx) == 0:
             return
@@ -89,7 +93,9 @@ class SVAdaptive:
         '''
         # Compute voxel index to keep and to subdivided
         if len(subdivide_mask.shape) == 2:
+            assert subdivide_mask.shape[1] == 1
             subdivide_mask = subdivide_mask.squeeze(1)
+        assert subdivide_mask.shape == (self.num_voxels, )
         kept_idx = (~subdivide_mask).argwhere().squeeze(1)
         subdivide_idx = subdivide_mask.argwhere().squeeze(1)
         if len(subdivide_idx) == 0:

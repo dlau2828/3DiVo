@@ -42,6 +42,14 @@ class SVProperties:
         return self.scene_center + 0.5 * self.inside_extent
 
     @property
+    def outside_level(self):
+        return (self.scene_extent / self.inside_extent).log2().round().long().item()
+
+    @property
+    def bounding(self):
+        return torch.stack([self.scene_min, self.scene_max])
+
+    @property
     def inside_mask(self):
         isin = ((self.inside_min < self.vox_center) & (self.vox_center < self.inside_max)).all(1)
         return isin
