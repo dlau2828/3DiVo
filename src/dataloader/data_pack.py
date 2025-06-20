@@ -192,7 +192,8 @@ class CameraCreator:
 
         # Resize image if needed
         if downscale != 1:
-            image = image.resize(round(image.size[0] / downscale), round(image.size[1] / downscale))
+            size = (round(image.size[0] / downscale), round(image.size[1] / downscale))
+            image = image.resize(size)
 
         # Convert image to tensor
         tensor = torch.tensor(np.array(image), dtype=torch.float32).moveaxis(-1, 0) / 255.0
