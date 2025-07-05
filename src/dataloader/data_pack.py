@@ -7,6 +7,7 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 import os
+import time
 import random
 import numpy as np
 
@@ -47,7 +48,8 @@ class DataPack:
         meta_path1 = os.path.join(source_path, "transforms_train.json")
         meta_path2 = os.path.join(source_path, "transforms.json")
 
-        # TODO: read camera by multithreading
+        # Read images concurrently
+        s_time = time.perf_counter()
 
         if os.path.exists(sparse_path) or os.path.exists(colmap_path):
             print("Read dataset in COLMAP format.")
@@ -66,6 +68,9 @@ class DataPack:
                 camera_creator=camera_creator)
         else:
             raise Exception("Unknown scene type!")
+
+        e_time = time.perf_counter()
+        print(f"Read dataset in {e_time - s_time:.3f} seconds.")
 
         self._cameras = {
             'train': dataset['train_cam_lst'],
@@ -165,15 +170,6 @@ class CameraCreator:
                  sparse_pt=None,
                  image_name=""):
 
-        if self.camera_params_only:
-            return MiniCam(
-                c2w=np.linalg.inv(w2c),
-                fovx=fovx, fovy=fovy,
-                cx_p=cx_p, cy_p=cy_p,
-                width=image.size[0],
-                height=image.size[1],
-                image_name=image_name)
-
         # Determine target resolution
         if self.res_downscale > 0:
             downscale = self.res_downscale
@@ -189,6 +185,16 @@ class CameraCreator:
                 print(f"###################################################################")
                 print(f"Image too large. Suggest to use `--res_downscale {suggest_ds:.1f}`.")
                 print(f"###################################################################")
+
+        # Load camera parameters only
+        if self.camera_params_only:
+            return MiniCam(
+                c2w=np.linalg.inv(w2c),
+                fovx=fovx, fovy=fovy,
+                cx_p=cx_p, cy_p=cy_p,
+                width=round(image.size[0] / downscale),
+                height=round(image.size[1] / downscale),
+                image_name=image_name)
 
         # Resize image if needed
         if downscale != 1:

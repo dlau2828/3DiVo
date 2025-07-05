@@ -13,6 +13,7 @@ import pycolmap
 import numpy as np
 from PIL import Image
 from pathlib import Path
+import concurrent.futures
 
 from src.utils.colmap_utils import parse_colmap_pts
 from src.utils.camera_utils import focal2fov
@@ -39,7 +40,7 @@ def read_colmap_dataset(source_path, image_dir_name, use_test, test_every, camer
         key = lambda k : sfm.images[k].name)
 
     # Load all images and cameras
-    cam_lst = []
+    todo_lst = []
     for key in keys:
 
         frame = sfm.images[key]
@@ -79,7 +80,7 @@ def read_colmap_dataset(source_path, image_dir_name, use_test, test_every, camer
         # Load sparse point
         sparse_pt = point_cloud.points[correspondent[frame.name]]
 
-        cam_lst.append(camera_creator(
+        todo_lst.append(dict(
             image=image,
             w2c=w2c,
             fovx=fovx,
@@ -89,6 +90,15 @@ def read_colmap_dataset(source_path, image_dir_name, use_test, test_every, camer
             sparse_pt=sparse_pt,
             image_name=image_path.name,
         ))
+
+    # Load all cameras concurrently
+    import torch
+    torch.inverse(torch.eye(3, device="cuda"))  # Fix module lazy loading bug:
+                                                # https://github.com/pytorch/pytorch/issues/90613
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(camera_creator, **todo) for todo in todo_lst]
+        cam_lst = [f.result() for f in futures]
 
     # Split train/test
     if use_test:

@@ -12,6 +12,7 @@ import pycolmap
 import numpy as np
 from PIL import Image
 from pathlib import Path
+import concurrent.futures
 
 from src.utils.colmap_utils import parse_colmap_pts
 from src.utils.camera_utils import fov2focal, focal2fov
@@ -102,7 +103,7 @@ def read_cameras_from_json(source_path, meta_fname, camera_creator):
     global_cy_p = parse_principle_point(meta, is_cx=False)
 
     # Load all images and cameras
-    cam_lst = []
+    todo_lst = []
     for frame in meta["frames"]:
 
         # Guess the rgb image path and load image
@@ -146,7 +147,7 @@ def read_cameras_from_json(source_path, meta_fname, camera_creator):
         else:
             sparse_pt = None
 
-        cam_lst.append(camera_creator(
+        todo_lst.append(dict(
             image=image,
             w2c=w2c,
             fovx=fovx,
@@ -156,6 +157,15 @@ def read_cameras_from_json(source_path, meta_fname, camera_creator):
             sparse_pt=sparse_pt,
             image_name=image_path.name,
         ))
+
+    # Load all cameras concurrently
+    import torch
+    torch.inverse(torch.eye(3, device="cuda"))  # Fix module lazy loading bug:
+                                                # https://github.com/pytorch/pytorch/issues/90613
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(camera_creator, **todo) for todo in todo_lst]
+        cam_lst = [f.result() for f in futures]
 
     return cam_lst, point_cloud
 
