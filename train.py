@@ -36,6 +36,7 @@ def training(args):
     data_pack = DataPack(
         source_path=cfg.data.source_path,
         image_dir_name=cfg.data.image_dir_name,
+        mask_dir_name=cfg.data.mask_dir_name,
         res_downscale=cfg.data.res_downscale,
         res_width=cfg.data.res_width,
         skip_blend_alpha=cfg.data.skip_blend_alpha,

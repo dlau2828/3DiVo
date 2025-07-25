@@ -23,6 +23,7 @@ cfg.model = CfgNode(dict(
 cfg.data = CfgNode(dict(
     source_path = "",
     image_dir_name = "images",
+    mask_dir_name = "masks",
     res_downscale = 0.,
     res_width = 0,
     skip_blend_alpha = False,

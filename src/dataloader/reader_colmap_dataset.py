@@ -19,7 +19,7 @@ from src.utils.colmap_utils import parse_colmap_pts
 from src.utils.camera_utils import focal2fov
 
 
-def read_colmap_dataset(source_path, image_dir_name, use_test, test_every, camera_creator):
+def read_colmap_dataset(source_path, image_dir_name, mask_dir_name, use_test, test_every, camera_creator):
 
     source_path = Path(source_path)
 
@@ -75,10 +75,21 @@ def read_colmap_dataset(source_path, image_dir_name, use_test, test_every, camer
 
         # Load camera extrinsic
         w2c = np.eye(4, dtype=np.float32)
-        w2c[:3] = frame.cam_from_world.matrix()
+        try:
+            w2c[:3] = frame.cam_from_world().matrix()
+        except:
+            # Older version of pycolmap
+            w2c[:3] = frame.cam_from_world.matrix()
 
         # Load sparse point
         sparse_pt = point_cloud.points[correspondent[frame.name]]
+
+        # Load mask if there is
+        mask_path = (source_path / mask_dir_name / frame.name).with_suffix('.png')
+        if mask_path.exists():
+            mask = Image.open(mask_path)
+        else:
+            mask = None
 
         todo_lst.append(dict(
             image=image,
@@ -89,6 +100,7 @@ def read_colmap_dataset(source_path, image_dir_name, use_test, test_every, camer
             cy_p=cy_p,
             sparse_pt=sparse_pt,
             image_name=image_path.name,
+            mask=mask,
         ))
 
     # Load all cameras concurrently

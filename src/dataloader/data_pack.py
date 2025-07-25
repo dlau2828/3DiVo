@@ -25,6 +25,7 @@ class DataPack:
     def __init__(self,
                  source_path,
                  image_dir_name="images",
+                 mask_dir_name="masks",
                  res_downscale=0.,
                  res_width=0,
                  skip_blend_alpha=False,
@@ -56,6 +57,7 @@ class DataPack:
             dataset = read_colmap_dataset(
                 source_path=source_path,
                 image_dir_name=image_dir_name,
+                mask_dir_name=mask_dir_name,
                 use_test=use_test,
                 test_every=test_every,
                 camera_creator=camera_creator)
@@ -168,7 +170,8 @@ class CameraCreator:
                  cx_p=0.5,
                  cy_p=0.5,
                  sparse_pt=None,
-                 image_name=""):
+                 image_name="",
+                 mask=None):
 
         # Determine target resolution
         if self.res_downscale > 0:
@@ -209,10 +212,21 @@ class CameraCreator:
             if not self.skip_blend_alpha:
                 tensor = tensor * mask + int(self.alpha_is_white) * (1 - mask)
 
+        # Conver mask to tensor if there is
+        if mask is not None:
+            size = tensor.shape[-2:][::-1]
+            if mask.size != size:
+                mask = mask.resize(size)
+            mask = torch.tensor(np.array(mask), dtype=torch.float32) / 255.0
+            if len(mask.shape) == 3:
+                mask = mask.mean(-1)
+            mask = mask[None]
+
         return Camera(
             w2c=w2c,
             fovx=fovx, fovy=fovy,
             cx_p=cx_p, cy_p=cy_p,
             image=tensor,
+            mask=mask,
             sparse_pt=sparse_pt,
             image_name=image_name)
